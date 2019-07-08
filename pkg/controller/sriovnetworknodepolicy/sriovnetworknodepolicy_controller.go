@@ -297,7 +297,6 @@ func (r *ReconcileSriovNetworkNodePolicy) syncPluginDaemonObjs(dp *sriovnetworkv
 		r.tryDeleteDs(ns, "sriov-cni")
 		return nil
 	}
-		
 	// render RawCNIConfig manifests
 	data := render.MakeRenderData()
 	data.Data["Namespace"] = ns
