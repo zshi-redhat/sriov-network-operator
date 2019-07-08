@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	WEBHOOK_PATH                = "./bindata/manifests/webhook"
+	WEBHOOK_CONFIGMAP_PATH      = "./bindata/manifests/webhook/configmap"
+	WEBHOOK_SERVICE_PATH        = "./bindata/manifests/webhook/service"
 	SERVICE_CA_CONFIGMAP        = "openshift-service-ca"
 	SRIOV_MUTATING_WEBHOOK_NAME = "network-resources-injector-config"
 )
@@ -70,8 +71,22 @@ func (r *ReconcileSRIOVWebhook) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling SRIOV webhook")
 
+	ns := os.Getenv("NAMESPACE")
+	if request.Namespace != ns || request.Name != SERVICE_CA_CONFIGMAP {
+		return reconcile.Result{}, nil
+	}
+
+	data := render.MakeRenderData()
+	data.Data["Namespace"] = ns
+	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
+
+	err := r.Apply(WEBHOOK_CONFIGMAP_PATH, &data)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	caBundleConfigMap := &corev1.ConfigMap{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, caBundleConfigMap)
+	err = r.client.Get(context.TODO(), request.NamespacedName, caBundleConfigMap)
 	if err != nil {
 		reqLogger.Error(err, "Couldn't get caBundle ConfigMap")
 		return reconcile.Result{}, err
@@ -83,26 +98,37 @@ func (r *ReconcileSRIOVWebhook) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Render Webhook manifests
-	data := render.MakeRenderData()
-	data.Data["Namespace"] = os.Getenv("NAMESPACE")
-	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
+	data = render.MakeRenderData()
+	data.Data["Namespace"] = ns
 	data.Data["SRIOVMutatingWebhookName"] = SRIOV_MUTATING_WEBHOOK_NAME
 	data.Data["NetworkResourcesInjectorImage"] = os.Getenv("NetworkResourcesInjectorImage")
 	data.Data["ReleaseVersion"] = os.Getenv("RELEASEVERSION")
 	data.Data["CA_BUNDLE"] = []byte(caBundleData)
 
-	objs := []*uns.Unstructured{}
-	objs, err = render.RenderDir(WEBHOOK_PATH, &data)
+	err = r.Apply(WEBHOOK_SERVICE_PATH, &data)
 	if err != nil {
-		reqLogger.Error(err, "Fail to render webhook manifests")
 		return reconcile.Result{}, err
 	}
+
+	return reconcile.Result{}, nil
+}
+
+// Apply render and updates webhook manifests
+func (r *ReconcileSRIOVWebhook) Apply(manifestDir string, data *render.RenderData) error {
+	var err error
+	objs := []*uns.Unstructured{}
+	objs, err = render.RenderDir(manifestDir, &data)
+	if err != nil {
+		reqLogger.Error(err, "Fail to render webhook manifests")
+		return err
+	}
+
 	for _, obj := range objs {
 		err = r.client.Update(context.TODO(), obj)
 		if err != nil {
 			reqLogger.Error(err, "Couldn't update webhook config")
-			return reconcile.Result{}, err
+			return err
 		}
 	}
-	return reconcile.Result{}, nil
+	return nil
 }
