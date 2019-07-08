@@ -114,19 +114,19 @@ func (r *ReconcileSRIOVWebhook) Reconcile(request reconcile.Request) (reconcile.
 }
 
 // Apply render and updates webhook manifests
-func (r *ReconcileSRIOVWebhook) Apply(manifestDir string, data *render.RenderData) error {
+func (r *ReconcileSRIOVWebhook) Apply(manifestDir string, d *render.RenderData) error {
 	var err error
 	objs := []*uns.Unstructured{}
-	objs, err = render.RenderDir(manifestDir, &data)
+	objs, err = render.RenderDir(manifestDir, d)
 	if err != nil {
-		reqLogger.Error(err, "Fail to render webhook manifests")
+		log.Error(err, "Fail to render webhook manifests")
 		return err
 	}
 
 	for _, obj := range objs {
 		err = r.client.Update(context.TODO(), obj)
 		if err != nil {
-			reqLogger.Error(err, "Couldn't update webhook config")
+			log.Error(err, "Couldn't update webhook config")
 			return err
 		}
 	}
