@@ -1,4 +1,4 @@
-package sriovwebhook
+package caconfig
 
 import (
 	"context"
@@ -6,9 +6,12 @@ import (
 	"time"
 
 	render "github.com/openshift/sriov-network-operator/pkg/render"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -26,7 +29,7 @@ const (
 )
 
 var (
-	log          = logf.Log.WithName("controller_sriovwebhook")
+	log          = logf.Log.WithName("controller_caconfig")
 	ResyncPeriod = 1 * time.Minute
 )
 
@@ -38,13 +41,13 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileSRIOVWebhook{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileCAConfigMap{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("sriovwebhook-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("caconfig-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -58,31 +61,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcileSRIOVWebhook{}
+var _ reconcile.Reconciler = &ReconcileCAConfigMap{}
 
-// ReconcileSRIOVWebhook reconciles a ConfigMap object
-type ReconcileSRIOVWebhook struct {
+// ReconcileCAConfigMap reconciles a ConfigMap object
+type ReconcileCAConfigMap struct {
 	client client.Client
 	scheme *runtime.Scheme
 }
 
 // Reconcile updates MutatingWebhookConfiguration CABundle, given from SERVICE_CA_CONFIGMAP
-func (r *ReconcileSRIOVWebhook) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileCAConfigMap) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling SRIOV webhook")
+	reqLogger.Info("Reconciling CA config map")
 
-	ns := os.Getenv("NAMESPACE")
-	if request.Namespace != ns || request.Name != SERVICE_CA_CONFIGMAP {
+	if request.Namespace != os.Getenv("NAMESPACE") || request.Name != SERVICE_CA_CONFIGMAP {
 		return reconcile.Result{}, nil
-	}
-
-	data := render.MakeRenderData()
-	data.Data["Namespace"] = ns
-	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
-
-	err := r.Apply(WEBHOOK_CONFIGMAP_PATH, &data)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	caBundleConfigMap := &corev1.ConfigMap{}
@@ -97,38 +90,30 @@ func (r *ReconcileSRIOVWebhook) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// Render Webhook manifests
-	data = render.MakeRenderData()
-	data.Data["Namespace"] = ns
-	data.Data["SRIOVMutatingWebhookName"] = SRIOV_MUTATING_WEBHOOK_NAME
-	data.Data["NetworkResourcesInjectorImage"] = os.Getenv("NetworkResourcesInjectorImage")
-	data.Data["ReleaseVersion"] = os.Getenv("RELEASEVERSION")
-	data.Data["CA_BUNDLE"] = []byte(caBundleData)
+	webhookConfig := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: SRIOV_MUTATING_WEBHOOK_NAME}, webhookConfig)
+	if errors.IsNotFound(err) {
+		reqLogger.Error(err, "Couldn't find webhook config")
+		return reconcile.Result{RequeueAfter: ResyncPeriod}, nil
+	}
 
-	err = r.Apply(WEBHOOK_SERVICE_PATH, &data)
-	if err != nil {
+	modified := false
+	for idx, webhook := range webhookConfig.Webhooks {
+		// Update CABundle if CABundle is empty or updated.
+		if webhook.ClientConfig.CABundle == nil || !bytes.Equal(webhook.ClientConfig.CABundle, []byte(caBundleData)) {
+			modified = true
+			webhookConfig.Webhooks[idx].ClientConfig.CABundle = []byte(caBundleData)
+		}
+	}
+	if !modified {
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{}, nil
-}
-
-// Apply render and updates webhook manifests
-func (r *ReconcileSRIOVWebhook) Apply(manifestDir string, d *render.RenderData) error {
-	var err error
-	objs := []*uns.Unstructured{}
-	objs, err = render.RenderDir(manifestDir, d)
+	// Update webhookConfig
+	err = r.client.Update(context.TODO(), webhookConfig)
 	if err != nil {
-		log.Error(err, "Fail to render webhook manifests")
-		return err
+		reqLogger.Error(err, "Couldn't update webhook config")
 	}
 
-	for _, obj := range objs {
-		err = r.client.Update(context.TODO(), obj)
-		if err != nil {
-			log.Error(err, "Couldn't update webhook config")
-			return err
-		}
-	}
-	return nil
+	return reconcile.Result{}, nil
 }
