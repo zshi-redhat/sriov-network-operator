@@ -153,7 +153,7 @@ func (r *ReconcileSriovNetworkNodePolicy) Reconcile(request reconcile.Request) (
 		return reconcile.Result{}, err
 	}
 	// Render and sync Webhook objects
-	if err = r.syncWebhookObjs(); err != nil {
+	if err = r.syncWebhookObjs(defaultPolicy); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -329,7 +329,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncPluginDaemonObjs(dp *sriovnetworkv
 	return nil
 }
 
-func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs() error {
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs(dp *sriovnetworkv1.SriovNetworkNodePolicy) error {
 	logger := log.WithName("syncWebhookObjs")
 	logger.Info("Start to sync webhook objects")
 
@@ -347,7 +347,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs() error {
 	}
 	// Sync Webhook
 	for _, obj := range objs {
-		err = r.syncWebhookObject(obj)
+		err = r.syncWebhookObject(dp, obj)
 		if err != nil {
 			logger.Error(err, "Couldn't sync webhook objects")
 			return err
@@ -403,7 +403,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncDsObject(dp *sriovnetworkv1.SriovN
 	return nil
 }
 
-func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructured) error {
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(dp *sriovnetworkv1.SriovNetworkNodePolicy, obj *uns.Unstructured) error {
 	var err error
 	logger := log.WithName("syncWebhookObject")
 	logger.Info("Start to sync Objects")
@@ -412,7 +412,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructure
 	case "MutatingWebhookConfiguration":
 		whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
 		err = scheme.Convert(obj, whs, nil)
-		r.syncWebhook(whs)
+		r.syncWebhook(dp, whs)
 		if err != nil {
 			logger.Error(err, "Fail to sync mutate webhook")
 			return err
@@ -420,7 +420,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructure
 	case "ConfigMap":
 		cm := &corev1.ConfigMap{}
 		err = scheme.Convert(obj, cm, nil)
-		r.syncWebhookConfigMap(cm)
+		r.syncWebhookConfigMap(dp, cm)
 		if err != nil {
 			logger.Error(err, "Fail to sync webhook config map")
 			return err
