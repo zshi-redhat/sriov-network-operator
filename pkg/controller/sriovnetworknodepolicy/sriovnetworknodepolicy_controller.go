@@ -484,8 +484,9 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(cr *sriovnetworkv
 		}
 	} else {
 		logger.Info("Config map already exists, updating")
-		if cm.Data["service-ca.crt"] != nil {
-			in.Data["service-ca.crt"] = cm.Data["service-ca.crt"]
+		caBundle, ok := cm.Data["service-ca.crt"]
+		if ok {
+			in.Data["service-ca.crt"] = caBundle
 		}
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
