@@ -437,7 +437,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(dp *sriovnetworkv1.S
 	case "DaemonSet":
 		ds := &appsv1.DaemonSet{}
 		err = scheme.Convert(obj, ds, nil)
-		r.syncDaemonSet(dp, pl, ds)
+		r.syncWebhookDaemonSet(dp, ds)
 		if err != nil {
 			logger.Error(err, "Fail to sync DaemonSet", "Namespace", ds.Namespace, "Name", ds.Name)
 			return err
@@ -656,6 +656,35 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRoleBinding(cr *sriovnetwor
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
 			return fmt.Errorf("Couldn't update cluster role binding: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookDaemonSet(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *appsv1.DaemonSet) error {
+	logger := log.WithName("syncWebhookDaemonSet")
+	logger.Info("Start to sync webhook daemon", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	ds := &appsv1.DaemonSet{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, ds)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create webhook daemon: %v", err)
+			}
+			logger.Info("Create webhook daemon for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to webhook daemon: %v", err)
+		}
+	} else {
+		logger.Info("Webhook daemon already exists, updating")
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update webhook daemon: %v", err)
 		}
 	}
 	return nil
