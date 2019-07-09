@@ -339,7 +339,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs(dp *sriovnetworkv1.Sri
 	data.Data["Namespace"] = os.Getenv("NAMESPACE")
 	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
 	data.Data["SRIOVMutatingWebhookName"] = SRIOV_MUTATING_WEBHOOK_NAME
-	data.Data["NetworkResourcesInjectorImage"] = os.Getenv("NetworkResourcesInjectorImage")
+	data.Data["NetworkResourcesInjectorImage"] = os.Getenv("NETWORK_RESOURCES_INJECTOR_IMAGE")
 	data.Data["ReleaseVersion"] = os.Getenv("RELEASEVERSION")
 	objs, err := render.RenderDir(WEBHOOK_PATH, &data)
 	if err != nil {
@@ -486,7 +486,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 		return err
 	}
 	whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, whs)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: in.Name}, whs)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = r.client.Create(context.TODO(), in)
@@ -533,9 +533,9 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(cr *sriovnetworkv
 		}
 	} else {
 		logger.Info("Config map already exists, updating")
-		caBundle, ok := cm.Data["service-ca.crt"]
+		_, ok := cm.Data["service-ca.crt"]
 		if ok {
-			in.Data["service-ca.crt"] = caBundle
+			in.Data = cm.Data
 		}
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
