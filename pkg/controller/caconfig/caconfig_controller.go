@@ -1,6 +1,7 @@
 package caconfig
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"time"
@@ -75,7 +76,7 @@ func (r *ReconcileCAConfigMap) Reconcile(request reconcile.Request) (reconcile.R
 	}
 
 	caBundleConfigMap := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, caBundleConfigMap)
+	err := r.client.Get(context.TODO(), request.NamespacedName, caBundleConfigMap)
 	if err != nil {
 		reqLogger.Error(err, "Couldn't get caBundle ConfigMap")
 		return reconcile.Result{}, err

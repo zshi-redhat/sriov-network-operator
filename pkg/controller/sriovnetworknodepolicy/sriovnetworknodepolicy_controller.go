@@ -334,7 +334,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs() error {
 	logger.Info("Start to sync webhook objects")
 
 	// Render Webhook manifests
-	data = render.MakeRenderData()
+	data := render.MakeRenderData()
 	data.Data["Namespace"] = os.Getenv("NAMESPACE")
 	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
 	data.Data["SRIOVMutatingWebhookName"] = SRIOV_MUTATING_WEBHOOK_NAME
@@ -410,9 +410,9 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructure
 	scheme := kscheme.Scheme
 	switch kind := obj.GetKind(); kind {
 	case "MutatingWebhookConfiguration":
-		wh := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
-		err = scheme.Convert(obj, wh, nil)
-		r.syncWebhook(wh)
+		whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+		err = scheme.Convert(obj, whs, nil)
+		r.syncWebhook(whs)
 		if err != nil {
 			logger.Error(err, "Fail to sync mutate webhook")
 			return err
@@ -429,15 +429,15 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructure
 	return nil
 }
 
-func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(in *admissionregistrationv1beta1.MutatingWebhookConfiguration) error {
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *admissionregistrationv1beta1.MutatingWebhookConfiguration) error {
 	logger := log.WithName("syncWebhook")
 	logger.Info("Start to sync webhook", "Name", in.Name, "Namespace", in.Namespace)
 
 	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
 		return err
 	}
-	wh := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, wh)
+	whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, whs)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = r.client.Create(context.TODO(), in)
@@ -450,8 +450,10 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(in *admissionregistrationv
 		}
 	} else {
 		logger.Info("Webhook already exists, updating")
-		if wh.ClientConfig.CABundle != nil {
-			in.ClientConfig.CABundle = wh.ClientConfig.CABundle
+		for idx, wh := range whs.Webhooks {
+			if wh.ClientConfig.CABundle != nil {
+				in.Webhooks[idx].ClientConfig.CABundle = wh.ClientConfig.CABundle
+			}
 		}
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
@@ -461,7 +463,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(in *admissionregistrationv
 	return nil
 }
 
-func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(in *corev1.ConfigMap) error {
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *corev1.ConfigMap) error {
 	logger := log.WithName("syncWebhook")
 	logger.Info("Start to sync config map", "Name", in.Name, "Namespace", in.Namespace)
 
