@@ -16,6 +16,7 @@ import (
 
 	dptypes "github.com/intel/sriov-network-device-plugin/pkg/types"
 	errs "github.com/pkg/errors"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,11 +40,14 @@ var log = logf.Log.WithName("controller_sriovnetworknodepolicy")
 // ManifestPaths is the path to the manifest templates
 // bad, but there's no way to pass configuration to the reconciler right now
 const (
-	PLUGIN_PATH         = "./bindata/manifests/plugins"
-	DAEMON_PATH         = "./bindata/manifests/daemon"
-	DEFAULT_POLICY_NAME = "default"
-	CONFIGMAP_NAME      = "device-plugin-config"
-	DP_CONFIG_FILENAME  = "config.json"
+	PLUGIN_PATH                 = "./bindata/manifests/plugins"
+	DAEMON_PATH                 = "./bindata/manifests/daemon"
+	WEBHOOK_PATH                = "./bindata/manifests/webhook"
+	DEFAULT_POLICY_NAME         = "default"
+	CONFIGMAP_NAME              = "device-plugin-config"
+	DP_CONFIG_FILENAME          = "config.json"
+	SERVICE_CA_CONFIGMAP        = "openshift-service-ca"
+	SRIOV_MUTATING_WEBHOOK_NAME = "network-resources-injector-config"
 )
 
 var Namespace = os.Getenv("NAMESPACE")
@@ -148,6 +152,11 @@ func (r *ReconcileSriovNetworkNodePolicy) Reconcile(request reconcile.Request) (
 	if err = r.syncPluginDaemonObjs(defaultPolicy, policyList); err != nil {
 		return reconcile.Result{}, err
 	}
+	// Render and sync Webhook objects
+	if err = r.syncWebhookObjs(); err != nil {
+		return reconcile.Result{}, err
+	}
+
 
 	// All was successful. Request that this be re-triggered after ResyncPeriod,
 	// so we can reconcile state again.
@@ -320,6 +329,33 @@ func (r *ReconcileSriovNetworkNodePolicy) syncPluginDaemonObjs(dp *sriovnetworkv
 	return nil
 }
 
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObjs() error {
+	logger := log.WithName("syncWebhookObjs")
+	logger.Info("Start to sync webhook objects")
+
+	// Render Webhook manifests
+	data = render.MakeRenderData()
+	data.Data["Namespace"] = os.Getenv("NAMESPACE")
+	data.Data["ServiceCAConfigMap"] = SERVICE_CA_CONFIGMAP
+	data.Data["SRIOVMutatingWebhookName"] = SRIOV_MUTATING_WEBHOOK_NAME
+	data.Data["NetworkResourcesInjectorImage"] = os.Getenv("NetworkResourcesInjectorImage")
+	data.Data["ReleaseVersion"] = os.Getenv("RELEASEVERSION")
+	objs, err := render.RenderDir(WEBHOOK_PATH, &data)
+	if err != nil {
+		logger.Error(err, "Fail to render webhook manifests")
+		return err
+	}
+	// Sync Webhook
+	for _, obj := range objs {
+		err = r.syncWebhookObject(obj)
+		if err != nil {
+			logger.Error(err, "Couldn't sync webhook objects")
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *ReconcileSriovNetworkNodePolicy) tryDeleteDs(namespace, name string) error {
 	logger := log.WithName("tryDeleteDsObject")
 	ds := &appsv1.DaemonSet{}
@@ -362,6 +398,96 @@ func (r *ReconcileSriovNetworkNodePolicy) syncDsObject(dp *sriovnetworkv1.SriovN
 		if err != nil {
 			logger.Error(err, "Fail to sync DaemonSet", "Namespace", ds.Namespace, "Name", ds.Name)
 			return err
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(obj *uns.Unstructured) error {
+	var err error
+	logger := log.WithName("syncWebhookObject")
+	logger.Info("Start to sync Objects")
+	scheme := kscheme.Scheme
+	switch kind := obj.GetKind(); kind {
+	case "MutatingWebhookConfiguration":
+		wh := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+		err = scheme.Convert(obj, wh, nil)
+		r.syncWebhook(wh)
+		if err != nil {
+			logger.Error(err, "Fail to sync mutate webhook")
+			return err
+		}
+	case "ConfigMap":
+		cm := &corev1.ConfigMap{}
+		err = scheme.Convert(obj, cm, nil)
+		r.syncWebhookConfigMap(cm)
+		if err != nil {
+			logger.Error(err, "Fail to sync webhook config map")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(in *admissionregistrationv1beta1.MutatingWebhookConfiguration) error {
+	logger := log.WithName("syncWebhook")
+	logger.Info("Start to sync webhook", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	wh := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, wh)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create webhook: %v", err)
+			}
+			logger.Info("Create webhook for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get webhook: %v", err)
+		}
+	} else {
+		logger.Info("Webhook already exists, updating")
+		if wh.ClientConfig.CABundle != nil {
+			in.ClientConfig.CABundle = wh.ClientConfig.CABundle
+		}
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update webhook: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(in *corev1.ConfigMap) error {
+	logger := log.WithName("syncWebhook")
+	logger.Info("Start to sync config map", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	cm := &corev1.ConfigMap{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, cm)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create config map: %v", err)
+			}
+			logger.Info("Create config map for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get config map: %v", err)
+		}
+	} else {
+		logger.Info("Config map already exists, updating")
+		if cm.Data["service-ca.crt"] != nil {
+			in.Data["service-ca.crt"] = cm.Data["service-ca.crt"]
+		}
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update config map: %v", err)
 		}
 	}
 	return nil

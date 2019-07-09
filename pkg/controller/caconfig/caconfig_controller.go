@@ -5,10 +5,8 @@ import (
 	"os"
 	"time"
 
-	render "github.com/openshift/sriov-network-operator/pkg/render"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,8 +20,6 @@ import (
 )
 
 const (
-	WEBHOOK_CONFIGMAP_PATH      = "./bindata/manifests/webhook/configmap"
-	WEBHOOK_SERVICE_PATH        = "./bindata/manifests/webhook/service"
 	SERVICE_CA_CONFIGMAP        = "openshift-service-ca"
 	SRIOV_MUTATING_WEBHOOK_NAME = "network-resources-injector-config"
 )
