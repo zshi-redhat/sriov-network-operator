@@ -19,6 +19,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -425,6 +426,54 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookObject(dp *sriovnetworkv1.S
 			logger.Error(err, "Fail to sync webhook config map")
 			return err
 		}
+	case "ServiceAccount":
+		sa := &corev1.ServiceAccount{}
+		err = scheme.Convert(obj, sa, nil)
+		r.syncServiceAccount(dp, sa)
+		if err != nil {
+			logger.Error(err, "Fail to sync ServiceAccount")
+			return err
+		}
+	case "DaemonSet":
+		ds := &appsv1.DaemonSet{}
+		err = scheme.Convert(obj, ds, nil)
+		r.syncDaemonSet(dp, pl, ds)
+		if err != nil {
+			logger.Error(err, "Fail to sync DaemonSet", "Namespace", ds.Namespace, "Name", ds.Name)
+			return err
+		}
+	case "Service":
+		s := &corev1.Service{}
+		err = scheme.Convert(obj, s, nil)
+		r.syncService(dp, s)
+		if err != nil {
+			logger.Error(err, "Fail to sync Service", "Namespace", s.Namespace, "Name", s.Name)
+			return err
+		}
+	case "Secret":
+		s := &corev1.Secret{}
+		err = scheme.Convert(obj, s, nil)
+		r.syncSecret(dp, s)
+		if err != nil {
+			logger.Error(err, "Fail to sync Secret", "Namespace", s.Namespace, "Name", s.Name)
+			return err
+		}
+	case "ClusterRole":
+		cr := &rbacv1.ClusterRole{}
+		err = scheme.Convert(obj, cr, nil)
+		r.syncClusterRole(dp, cr)
+		if err != nil {
+			logger.Error(err, "Fail to sync cluster role", "Namespace", cr.Namespace, "Name", cr.Name)
+			return err
+		}
+	case "ClusterRoleBinding":
+		crb := &rbacv1.ClusterRoleBinding{}
+		err = scheme.Convert(obj, crb, nil)
+		r.syncClusterRoleBinding(dp, crb)
+		if err != nil {
+			logger.Error(err, "Fail to sync cluster role binding", "Namespace", crb.Namespace, "Name", crb.Name)
+			return err
+		}
 	}
 	return nil
 }
@@ -464,7 +513,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 }
 
 func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *corev1.ConfigMap) error {
-	logger := log.WithName("syncWebhook")
+	logger := log.WithName("syncWebhookConfigMap")
 	logger.Info("Start to sync config map", "Name", in.Name, "Namespace", in.Namespace)
 
 	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
@@ -491,6 +540,122 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhookConfigMap(cr *sriovnetworkv
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
 			return fmt.Errorf("Couldn't update config map: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncService(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *corev1.Service) error {
+	logger := log.WithName("syncService")
+	logger.Info("Start to sync service", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	s := &corev1.Service{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, s)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create service: %v", err)
+			}
+			logger.Info("Create service for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get service: %v", err)
+		}
+	} else {
+		logger.Info("Service already exists, updating")
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update service: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncSecret(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *corev1.Secret) error {
+	logger := log.WithName("syncSecret")
+	logger.Info("Start to sync secret", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	s := &corev1.Secret{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, s)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create secret: %v", err)
+			}
+			logger.Info("Create secret for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get secret: %v", err)
+		}
+	} else {
+		logger.Info("Secret already exists, updating")
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update secret: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncClusterRole(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *rbacv1.ClusterRole) error {
+	logger := log.WithName("syncClusterRole")
+	logger.Info("Start to sync cluster role", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	clusterRole := &rbacv1.ClusterRole{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, clusterRole)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create cluster role: %v", err)
+			}
+			logger.Info("Create cluster role for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get cluster role: %v", err)
+		}
+	} else {
+		logger.Info("Cluster role already exists, updating")
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update cluster role: %v", err)
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileSriovNetworkNodePolicy) syncClusterRoleBinding(cr *sriovnetworkv1.SriovNetworkNodePolicy, in *rbacv1.ClusterRoleBinding) error {
+	logger := log.WithName("syncClusterRoleBinding")
+	logger.Info("Start to sync cluster role binding", "Name", in.Name, "Namespace", in.Namespace)
+
+	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		return err
+	}
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, clusterRoleBinding)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err = r.client.Create(context.TODO(), in)
+			if err != nil {
+				return fmt.Errorf("Couldn't create cluster role binding: %v", err)
+			}
+			logger.Info("Create cluster role binding for", in.Namespace, in.Name)
+		} else {
+			return fmt.Errorf("Fail to get cluster role binding: %v", err)
+		}
+	} else {
+		logger.Info("Cluster role binding already exists, updating")
+		err = r.client.Update(context.TODO(), in)
+		if err != nil {
+			return fmt.Errorf("Couldn't update cluster role binding: %v", err)
 		}
 	}
 	return nil
