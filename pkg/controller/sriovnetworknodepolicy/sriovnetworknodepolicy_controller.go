@@ -498,10 +498,10 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 	if err != nil {
 		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
-			logger.Info("---------------------------------------------------3", err)
+			logger.Error(err, "---------------------------------------------------3")
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
-				logger.Info("---------------------------------------------------4", err)
+				logger.Error(err, "---------------------------------------------------4")
 				return fmt.Errorf("Couldn't create webhook: %v", err)
 			}
 			logger.Info("---------------------------------------------------5", in.Namespace, in.Name)
@@ -632,10 +632,10 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRole(cr *sriovnetworkv1.Sri
 	if err != nil {
 		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
-			logger.Info("---------------------------------------------------3", err)
+			logger.Error(err, "---------------------------------------------------3")
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
-				logger.Info("---------------------------------------------------4", err)
+				logger.Error(err, "---------------------------------------------------4")
 				return fmt.Errorf("Couldn't create cluster role: %v", err)
 			}
 			logger.Info("Create cluster role for", in.Namespace, in.Name)
@@ -668,10 +668,10 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRoleBinding(cr *sriovnetwor
 	if err != nil {
 		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
-			logger.Info("---------------------------------------------------3", err)
+			logger.Error(err, "---------------------------------------------------3")
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
-				logger.Info("---------------------------------------------------4", err)
+				logger.Error(err, "---------------------------------------------------4")
 				return fmt.Errorf("Couldn't create cluster role binding: %v", err)
 			}
 			logger.Info("Create cluster role binding for", in.Namespace, in.Name)
