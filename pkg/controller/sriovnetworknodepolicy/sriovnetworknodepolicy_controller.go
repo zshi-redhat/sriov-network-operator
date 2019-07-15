@@ -490,6 +490,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 	logger.Info("Start to sync webhook", "Name", in.Name, "Namespace", in.Namespace)
 
 	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		logger.Error(err, "---------------------------------------------------0")
 		return err
 	}
 	whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
@@ -624,6 +625,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRole(cr *sriovnetworkv1.Sri
 	logger.Info("Start to sync cluster role", "Name", in.Name, "Namespace", in.Namespace)
 
 	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		logger.Error(err, "---------------------------------------------------0")
 		return err
 	}
 	clusterRole := &rbacv1.ClusterRole{}
@@ -660,6 +662,7 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRoleBinding(cr *sriovnetwor
 	logger.Info("Start to sync cluster role binding", "Name", in.Name, "Namespace", in.Namespace)
 
 	if err := controllerutil.SetControllerReference(cr, in, r.scheme); err != nil {
+		logger.Error(err, "---------------------------------------------------0")
 		return err
 	}
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
