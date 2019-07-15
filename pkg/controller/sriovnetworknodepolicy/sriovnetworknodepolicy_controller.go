@@ -494,14 +494,20 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 	}
 	whs := &admissionregistrationv1beta1.MutatingWebhookConfiguration{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: in.Name}, whs)
+	logger.Info("---------------------------------------------------1", in.Namespace, in.Name)
 	if err != nil {
+		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
+			logger.Info("---------------------------------------------------3", in.Namespace, in.Name)
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
+				logger.Info("---------------------------------------------------4", in.Namespace, in.Name)
 				return fmt.Errorf("Couldn't create webhook: %v", err)
 			}
+			logger.Info("---------------------------------------------------5", in.Namespace, in.Name)
 			logger.Info("Create webhook for", in.Namespace, in.Name)
 		} else {
+			logger.Info("---------------------------------------------------6", in.Namespace, in.Name)
 			return fmt.Errorf("Fail to get webhook: %v", err)
 		}
 	} else {
@@ -511,11 +517,14 @@ func (r *ReconcileSriovNetworkNodePolicy) syncWebhook(cr *sriovnetworkv1.SriovNe
 				in.Webhooks[idx].ClientConfig.CABundle = wh.ClientConfig.CABundle
 			}
 		}
+		logger.Info("---------------------------------------------------7", in.Namespace, in.Name)
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
+			logger.Info("---------------------------------------------------8", in.Namespace, in.Name)
 			return fmt.Errorf("Couldn't update webhook: %v", err)
 		}
 	}
+	logger.Info("---------------------------------------------------9", in.Namespace, in.Name)
 	return nil
 }
 
@@ -619,23 +628,30 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRole(cr *sriovnetworkv1.Sri
 	}
 	clusterRole := &rbacv1.ClusterRole{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, clusterRole)
+	logger.Info("---------------------------------------------------1", in.Namespace, in.Name)
 	if err != nil {
+		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
+			logger.Info("---------------------------------------------------3", in.Namespace, in.Name)
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
+				logger.Info("---------------------------------------------------4", in.Namespace, in.Name)
 				return fmt.Errorf("Couldn't create cluster role: %v", err)
 			}
 			logger.Info("Create cluster role for", in.Namespace, in.Name)
 		} else {
+			logger.Info("---------------------------------------------------5", in.Namespace, in.Name)
 			return fmt.Errorf("Fail to get cluster role: %v", err)
 		}
 	} else {
 		logger.Info("Cluster role already exists, updating")
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
+			logger.Info("---------------------------------------------------6", in.Namespace, in.Name)
 			return fmt.Errorf("Couldn't update cluster role: %v", err)
 		}
 	}
+	logger.Info("---------------------------------------------------7", in.Namespace, in.Name)
 	return nil
 }
 
@@ -648,23 +664,30 @@ func (r *ReconcileSriovNetworkNodePolicy) syncClusterRoleBinding(cr *sriovnetwor
 	}
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: in.Namespace, Name: in.Name}, clusterRoleBinding)
+	logger.Info("---------------------------------------------------1", in.Namespace, in.Name)
 	if err != nil {
+		logger.Info("---------------------------------------------------2", in.Namespace, in.Name)
 		if errors.IsNotFound(err) {
+			logger.Info("---------------------------------------------------3", in.Namespace, in.Name)
 			err = r.client.Create(context.TODO(), in)
 			if err != nil {
+				logger.Info("---------------------------------------------------4", in.Namespace, in.Name)
 				return fmt.Errorf("Couldn't create cluster role binding: %v", err)
 			}
 			logger.Info("Create cluster role binding for", in.Namespace, in.Name)
 		} else {
+			logger.Info("---------------------------------------------------5", in.Namespace, in.Name)
 			return fmt.Errorf("Fail to get cluster role binding: %v", err)
 		}
 	} else {
 		logger.Info("Cluster role binding already exists, updating")
 		err = r.client.Update(context.TODO(), in)
 		if err != nil {
+			logger.Info("---------------------------------------------------6", in.Namespace, in.Name)
 			return fmt.Errorf("Couldn't update cluster role binding: %v", err)
 		}
 	}
+	logger.Info("---------------------------------------------------7", in.Namespace, in.Name)
 	return nil
 }
 
