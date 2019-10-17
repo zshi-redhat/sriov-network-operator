@@ -338,6 +338,21 @@ func schema_pkg_apis_sriovnetwork_v1_SriovNetworkSpec(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable or disable runtime to insert dynamic plugin specific configuration",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"boolean"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"ipam": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IPAM configuration to be used for this network.",
