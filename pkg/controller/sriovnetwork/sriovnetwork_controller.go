@@ -222,6 +222,12 @@ func renderNetAttDef(cr *sriovnetworkv1.SriovNetwork) (*uns.Unstructured, error)
 			data.Data["SriovCniTrust"] = "off"
 		}
 	}
+	if cr.Spec.Capabilities == nil {
+		data.Data["CapabilityConfigured"] = false
+	} else {
+		data.Data["CapabilityConfigured"] = true
+		data.Data["SriovCniCapabilities"] = cr.Spec.Capabilities
+	}
 	data.Data["SriovCniIpam"] = "\"ipam\":" + strings.Join(strings.Fields(cr.Spec.IPAM), "")
 
 	objs, err = render.RenderDir(MANIFESTS_PATH, &data)
