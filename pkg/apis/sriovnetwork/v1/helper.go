@@ -128,6 +128,7 @@ func (p *SriovNetworkNodePolicy) Apply(state *SriovNetworkNodeState) {
 				for i := range state.Spec.Interfaces {
 					if state.Spec.Interfaces[i].PciAddress == result.PciAddress {
 						found = true
+						result = state.Spec.Interfaces[i].mergePfConfigs(result)
 						result.VfGroups = state.Spec.Interfaces[i].mergeVfGroups(group)
 						state.Spec.Interfaces[i] = result
 						break
@@ -140,6 +141,16 @@ func (p *SriovNetworkNodePolicy) Apply(state *SriovNetworkNodeState) {
 			}
 		}
 	}
+}
+
+func (iface Interface) mergePfConfigs(input Interface) Interface {
+	if input.Mtu < iface.Mtu {
+		input.Mtu = iface.Mtu
+	}
+	if input.NumVfs < iface.NumVfs {
+		input.NumVfs = iface.NumVfs
+	}
+	return input
 }
 
 func (iface Interface) mergeVfGroups(input *VfGroup) []VfGroup {
