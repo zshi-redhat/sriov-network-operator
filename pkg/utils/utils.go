@@ -444,12 +444,12 @@ func Chroot(path string) (func() error, error) {
 	}, nil
 }
 
-func vfIsReady(pciAddr string) (string, netlink.Link, error) {
+func vfIsReady(pciAddr string) (netlink.Link, error) {
 	glog.Infof("vfIsReady(): VF device %s", pciAddr)
-	var vfName string
+	var err error
 	var vfLink netlink.Link
-	err := wait.PollImmediate(time.Second, 5*time.Second, func() (bool, error) {
-		vfName = tryGetInterfaceName(pciAddr)
+	err = wait.PollImmediate(time.Second, 5*time.Second, func() (bool, error) {
+		vfName := tryGetInterfaceName(pciAddr)
 		vfLink, err = netlink.LinkByName(vfName)
 		if err != nil {
 			glog.Errorf("vfIsReady(): unable to get VF link for device %+v, %q", pciAddr, err)
@@ -457,9 +457,9 @@ func vfIsReady(pciAddr string) (string, netlink.Link, error) {
 		return err == nil, nil
 	})
 	if err != nil {
-		return vfName, vfLink, err
+		return vfLink, err
 	}
-	return vfName, vfLink, nil
+	return vfLink, nil
 }
 
 func setVfsAdminMac(iface *sriovnetworkv1.InterfaceExt) error {
@@ -479,7 +479,7 @@ func setVfsAdminMac(iface *sriovnetworkv1.InterfaceExt) error {
 			glog.Errorf("setVfsAdminMac(): unable to get VF id %+v %q", iface.PciAddress, err)
 			return err
 		}
-		vfName, vfLink, err := vfIsReady(addr)
+		vfLink, err := vfIsReady(addr)
 		if err != nil {
 			glog.Errorf("setVfsAdminMac(): VF link is not ready for device %+v %q", addr, err)
 			return err
