@@ -49,6 +49,7 @@ func ValidateCustomResource(ar v1beta1.AdmissionReview) *v1beta1.AdmissionRespon
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 
+	glog.V(0).Info("webhook opreation: %s", ar.Request.Operation)
 	if reviewResponse.Allowed, err = validateSriovNetworkNodePolicy(&cr); err != nil {
 		reviewResponse.Result = &metav1.Status{
 			Reason: metav1.StatusReason(err.Error()),
