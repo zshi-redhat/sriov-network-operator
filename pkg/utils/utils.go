@@ -108,6 +108,8 @@ func DiscoverSriovDevices() ([]sriovnetworkv1.InterfaceExt, error) {
 	return pfList, nil
 }
 
+// SyncNodeState Attempt to update the node state to match the desired state
+//
 func SyncNodeState(newState *sriovnetworkv1.SriovNetworkNodeState) error {
 	var err error
 	for _, ifaceStatus := range newState.Status.Interfaces {
