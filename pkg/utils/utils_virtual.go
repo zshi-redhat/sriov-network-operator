@@ -141,7 +141,7 @@ func configSriovDeviceVirtual(iface *sriovnetworkv1.Interface, ifaceStatus *srio
 		}
 		if len(iface.VfGroups) != 1 {
 			glog.Warningf("configSriovDeviceVirtual(): missing VFGroup")
-			return errors.New("NumVfs > 1")
+			return errors.New("NumVfs != 1")
 		}
 		vfAddrs := []string{iface.PciAddress}
 		glog.V(2).Infof("configSriovDeviceVirtual(): vfaddrs %v", vfAddrs)
