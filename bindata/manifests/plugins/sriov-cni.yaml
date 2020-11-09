@@ -22,6 +22,7 @@ spec:
         type: infra
         openshift.io/component: network
     spec:
+      hostNetwork: true
       nodeSelector:
         beta.kubernetes.io/os: linux
       tolerations:
