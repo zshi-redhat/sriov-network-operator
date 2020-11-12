@@ -49,10 +49,10 @@ spec:
               value: openshift.io
             - name: ENABLE_ADMISSION_CONTROLLER
               value: "$ENABLE_ADMISSION_CONTROLLER"
-            - name: KUBERNETES_SERVICE_HOST
-              value: "$KUBERNETES_SERVICE_HOST"
-            - name: KUBERNETES_SERVICE_PORT
-              value: "$KUBERNETES_SERVICE_PORT"
+            - name: KUBERNETES_SERVICE_HOST_CONFIG_DAEMON
+              value: "$KUBERNETES_SERVICE_HOST_CONFIG_DAEMON"
+            - name: KUBERNETES_SERVICE_PORT_CONFIG_DAEMON
+              value: "$KUBERNETES_SERVICE_PORT_CONFIG_DAEMON"
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
