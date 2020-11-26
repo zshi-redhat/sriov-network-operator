@@ -51,6 +51,8 @@ spec:
             value: "{{.KUBERNETES_SERVICE_HOST}}"
           - name: KUBERNETES_SERVICE_PORT
             value: "{{.KUBERNETES_SERVICE_PORT}}"
+          - name: KUBECONFIG
+            value: "{{.KUBECONFIG}}"
         volumeMounts:
         - name: host
           mountPath: /host

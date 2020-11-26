@@ -169,6 +169,7 @@ func (r *ReconcileSriovOperatorConfig) syncConfigDaemonSet(dc *sriovnetworkv1.Sr
 	data.Data["ReleaseVersion"] = os.Getenv("RELEASEVERSION")
 	data.Data["KUBERNETES_SERVICE_HOST"] = os.Getenv("KUBERNETES_SERVICE_HOST_CONFIG_DAEMON")
 	data.Data["KUBERNETES_SERVICE_PORT"] = os.Getenv("KUBERNETES_SERVICE_PORT_CONFIG_DAEMON")
+	data.Data["KUBECONFIG"] = os.Getenv("KUBECONFIG")
 	objs, err := render.RenderDir(CONFIG_DAEMON_PATH, &data)
 	if err != nil {
 		logger.Error(err, "Fail to render config daemon manifests")
