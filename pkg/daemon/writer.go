@@ -63,7 +63,7 @@ func (writer *NodeStateStatusWriter) Run(stop <-chan struct{}, refresh <-chan Me
 				continue
 			}
 			writer.setNodeStateStatus(msg)
-			if msg.syncStatus == "Succeeded" || msg.syncStatus == "Failed" {
+			if msg.syncStatus == "Succeeded" || msg.syncStatus == "Failed" || msg.syncStatus == "InProgress" {
 				syncCh <- struct{}{}
 			}
 		case <-time.After(30 * time.Second):

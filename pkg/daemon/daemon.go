@@ -429,6 +429,14 @@ func (dn *Daemon) operatorConfigChangeHandler(old, new interface{}) {
 func (dn *Daemon) nodeStateSyncHandler(generation int64) error {
 	var err error
 	glog.V(0).Infof("nodeStateSyncHandler(): new generation is %d", generation)
+
+	// Trigger the update of nodestate before getting latestState
+	dn.refreshCh <- Message{
+		syncStatus:    "InProgress",
+		lastSyncError: "",
+	}
+	<-dn.syncCh
+
 	// Get the latest NodeState
 	var latestState *sriovnetworkv1.SriovNetworkNodeState
 	latestState, err = dn.client.SriovnetworkV1().SriovNetworkNodeStates(namespace).Get(context.Background(), dn.name, metav1.GetOptions{})
@@ -448,11 +456,6 @@ func (dn *Daemon) nodeStateSyncHandler(generation int64) error {
 		}
 
 		return nil
-	}
-
-	dn.refreshCh <- Message{
-		syncStatus:    "InProgress",
-		lastSyncError: "",
 	}
 
 	// load plugins if has not loaded
